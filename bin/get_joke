@@ -1,0 +1,48 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+require 'uri'
+require 'rack'
+require 'net/http'
+require 'json'
+
+options = {}
+
+parser = OptionParser.new do |parser|
+    parser.on("-f", "--first-name FIRST_NAME", "Replacement for first name")
+    parser.on("-l", "--last-name LAST_NAME", "Replacement for last name")
+    parser.on("-r", "--random RANDOM_JOKES_COUNT", "Render n random jokes")
+
+    parser.on('-h', '--help', 'Print this') do
+        puts parser
+        exit
+    end
+end
+
+parser.parse!(into: options)
+
+base_url = "http://api.icndb.com/jokes/random"
+base_url += "/#{options.fetch(:random)}" if options.key?(:random)
+uri = URI(base_url)
+
+query = {
+    'firstName' => options[:"first-name"],
+    'lastName' => options[:"last-name"],
+}.delete_if { |key, val| val.nil? }
+
+# Build query in the base url
+uri.query = Rack::Utils.build_query(query) unless query.empty?
+
+response = Net::HTTP.get_response(uri).body
+parsed_response = JSON.load(response)
+
+if parsed_response['type'] == 'success'
+    value = parsed_response['value']
+    value = [value] if value.is_a?(Hash)
+
+    value.each_with_index do |joke, idx|
+        puts "Joke #{idx + 1}: #{joke["joke"]} \n\n"
+    end
+else
+    puts "Something went wrong"
+end
